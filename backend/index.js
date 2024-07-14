@@ -3,13 +3,15 @@ const axios = require("axios");
 const cors = require("cors"); // Import the 'cors' package
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
-const { translate } = require("free-translate");
+// const { translate } = require("free-translate");
+const translate = require("@iamtraction/google-translate");
 const {
   gpt,
   gemini,
   analyzeComments,
   promptTemplate,
-  getGroupCommentsWithSimplified
+  getGroupCommentsWithSimplified,
+  isEnglish
 } = require("./functions");
 const { rootRouter } = require("./routes/index");
 
@@ -18,7 +20,8 @@ dotenv.config();
 const app = express();
 // Enable CORS for all routes
 app.use(cors());
-app.use(bodyParser.json()); // parses JSON requests
+// Increase the request size limit to 50MB
+app.use(bodyParser.json({ limit: "50mb" }));
 const PORT = process.env.PORT || 5000;
 
 app.use("/api", rootRouter);
@@ -69,8 +72,8 @@ app.post("/api/categorize", async (req, res) => {
   try {
     const { comments } = req.body;
 
-    const result = await analyzeComments(comments);
-    console.log(result);
+    const result = await analyzeComments(JSON.parse(comments));
+    // console.log(result);
 
     res.json(result);
   } catch (error) {
@@ -84,23 +87,39 @@ app.post("/api/simplified", async (req, res) => {
     "Rewite the user's comment into detailed but simple words such that it will explain what user want to say.";
 
   try {
-    const { questions } = req.body;
+    const { sentiment } = req.body;
 
-    let simplified_comments = [];
-    for (let comment of questions) {
-      const translatedText = await translate(comment.text, { to: "en" });
+    // Use map to gather all promises
+    const simplified_comments = await Promise.all(
+      sentiment.map(async (comment) => {
+        try {
+          // Translate if not in English
+          if (!isEnglish(comment.text)) {
+            const translationResult = await translate(comment.text, { to: "en" });
+            comment.text = translationResult?.text || comment.text;
+          }
 
-      const prompt = `Here is a Structure of comment that you have to use:\n${comment.cid}:${translatedText}\n\n\nAnd return output in this format: {"cid": "${comment.cid}", "simplified_comment": (detailed Simplified Comment)}.`;
+          // Create prompt for GPT
+          const prompt = `Here is a Structure of comment that you have to use:\n${comment.cid}:${comment.text}\n\n\nAnd return output in this format: {"cid": "${comment.cid}", "text": (detailed Simplified Comment)}.`;
 
-      const simplifiedComment = await gpt(simplified_prompt + prompt, 0.2, []);
+          // Call GPT API
+          const simplifiedComment = await gpt(`${simplified_prompt}\n\n${prompt}`, 0.2, []);
+          
+          // Parse and return simplified comment
+          return JSON.parse(simplifiedComment);
+        } catch (err) {
+          console.error("Error processing comment:", err);
+          console.log({ cid: comment.cid, error: comment.text }) 
+          return  { cid: comment.cid, error: err.message }
+        }
+      })
+    );
 
-      simplified_comments.push(JSON.parse(simplifiedComment));
-    }
-
+    // Respond with simplified comments
     res.json(simplified_comments);
   } catch (error) {
-    console.error("Error fetching comments:", error.message);
-    res.status(500).json({ error: "Error fetching comments" });
+    console.error("Error during Simplifying:", error.message);
+    res.status(500).json({ error: "Error during Simplifying" });
   }
 });
 
@@ -120,12 +139,12 @@ app.post("/api/groups", async (req, res) => {
       const group_prompt = `Make a Group of comments based on their similarity. Generate a "group_about" which is a sentence has the essence of all comments included.\n\nHere is a Structure of comments that you have to use:\n${batches[
         i
       ]
-        .map(comment => `- ${comment.cid}:${comment.simplified_comment}`)
+        .map(comment => `- ${comment.cid}:${comment.text}`)
         .join("\n")}\n\n\nAnd return output in this format: ${JSON.stringify(
         getGroupCommentsWithSimplified
       )}.`;
 
-      const result = await gemini(promptTemplate + group_prompt);
+      const result = await gemini(`${promptTemplate}\n\n${group_prompt}`);
       // console.log(result);
       responses.push(...JSON.parse(result));
 
@@ -134,8 +153,8 @@ app.post("/api/groups", async (req, res) => {
 
     res.json(responses);
   } catch (error) {
-    console.error("Error fetching comments:", error.message);
-    res.status(500).json({ error: "Error fetching comments" });
+    console.error("Error During Grouping:", error.message);
+    res.status(500).json({ error: "Error During Grouping" });
   }
 });
 

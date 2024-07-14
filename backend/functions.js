@@ -5,7 +5,8 @@ const natural = require("natural");
 const asyncc = require("async");
 const SW = require("stopword");
 const SpellCorrector = require("spelling-corrector");
-const { translate } = require("free-translate");
+// const { translate } = require("free-translate");
+const translate = require("@iamtraction/google-translate");
 
 const spellCorrector = new SpellCorrector();
 spellCorrector.loadDictionary();
@@ -140,6 +141,17 @@ function isQuestion(comment) {
   return false;
 }
 
+function isEnglish(text) {
+  // Regex pattern to match English characters (including common punctuation and spaces)
+  const englishPattern = /[\u0000-\u007F]/gi;
+  return englishPattern.test(text);
+}
+
+function removeEmojis(string) {
+  const regex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
+  return string.replace(regex, "");
+}
+
 async function analyzeComment(comment) {
   try {
     // Make a request to the sentiment analysis endpoint
@@ -148,9 +160,27 @@ async function analyzeComment(comment) {
     //   `Understand the emotion of '${comment.text}' and  Rewrite in simple words whether its a 'question' or 'negative' or 'positive'.`
     // ).then((response) => response.trim().toLowerCase());
 
-    if (isQuestion(comment.text)) return "questions";
+    const text = removeEmojis(comment.text);
 
-    const translatedText = await translate(comment.text, { to: "en" });
+    if (text === "" || !text) return "neutrals";
+
+    let translatedText = comment.text;
+
+    if (!isEnglish(comment.text)) {
+      translatedText = await translate(comment.text, { to: "en" })
+        .then(res => {
+          // console.log("original", comment.text); // OUTPUT: You are amazing!
+          // console.log("translated", res.text); // OUTPUT: You are amazing!
+          // console.log("id", comment.cid); // OUTPUT: You are amazing!
+
+          return res.text;
+        })
+        .catch(err => {
+          console.error("error while translation", err);
+        });
+    }
+
+    if (isQuestion(translatedText)) return "questions";
     const lexedReview = aposToLexForm(translatedText);
     const casedReview = lexedReview.toLowerCase();
     const alphaOnlyReview = casedReview.replace(/[^a-zA-Z\s]+/g, "");
@@ -255,7 +285,7 @@ const getGroupCommentsWithSimplified = [
     group_of_comments: [
       {
         cid: "(cid of question)",
-        simplified_comment: "(text of simplified question)"
+        text: "(text of simplified question)"
       }
     ]
   }
@@ -266,5 +296,6 @@ module.exports = {
   gemini,
   analyzeComments,
   promptTemplate,
-  getGroupCommentsWithSimplified
+  getGroupCommentsWithSimplified,
+  isEnglish
 };

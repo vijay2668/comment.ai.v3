@@ -26,3 +26,55 @@ ul {
   list-style: disc;
   padding-left: 1.5rem;
 }
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.rmsc {
+  --rmsc-main: #252c36 !important;
+  --rmsc-hover: #1d242e !important;
+  --rmsc-selected: #1d242e !important;
+  --rmsc-border: #252c36 !important;
+  --rmsc-gray: #aaa !important;
+  --rmsc-bg: #0e1420 !important;
+  --rmsc-p: 10px !important; /* Spacing */
+  --rmsc-h: 38px !important; /* Height */
+}
+
+.rmsc .select-panel {
+  @apply border border-[#252c36];
+}
+
+.rmsc .options {
+  @apply scrollbar-hide divide-y divide-[#252c36];
+  max-height: 155px !important;
+}
+
+.rmsc *:not(.search *) {
+  @apply cursor-pointer;
+}
+
+#table_body > div > div {
+  @apply divide-y divide-[#252C36];
+}
+
+#table_body > div {
+  @apply scrollbar-hide overflow-y-scroll;
+}
+
+.doughnut {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.szh-accordion__item,
+.szh-accordion__item-btn,
+.szh-accordion__item-heading {
+  @apply flex w-full text-start;
+}
+
+.szh-accordion__item-content,
+.szh-accordion__item-panel {
+  @apply flex h-fit w-full flex-col overflow-hidden;
+}

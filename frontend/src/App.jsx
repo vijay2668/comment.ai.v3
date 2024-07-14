@@ -1,45 +1,114 @@
 import "./App.css";
-import { useEffect, useState } from "react";
-import { LoginPage } from "./components/login";
-import { MainPage } from "./components/main";
-import { googleLogout } from "@react-oauth/google";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import Home from "./pages/home";
+import Dashboard from "./pages/dashboard";
+import LiveStats from "./pages/live-stats";
+import { useState } from "react";
 import { getCookie } from "./helpers";
+import { Header } from "./components/header";
+import { Sidebar } from "./components/sidebar";
+import { commentHeaders } from "./utils";
+import Comments from "./pages/comments";
+import { Sentiment } from "./pages/sentiment";
 
 const App = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const refreshTokenCookie = getCookie("refresh_token");
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    refreshTokenCookie ? true : false,
+  ); // check if the user is logged in or not
 
-  const handleLogout = async () => {
-    // Your logout logic here
-    setIsLoggedIn(false);
-    googleLogout();
-  };
+  const [options, setOptions] = useState({
+    replies: false,
+    sort: "relevance",
+    max: "50",
+    file_type: "csv",
+    file_name: "document",
+  });
 
-  //this useffect checks if user access token is expired or not
-  useEffect(() => {
-    const accessTokenCookie = getCookie("access_token");
-    if (!accessTokenCookie) {
-      handleLogout();
-    } else {
-      setIsLoggedIn(true);
-    }
-  }, []);
+  const [sentimentsGroups, setSentimentsGroups] = useState({
+    positives: [],
+    negatives: [],
+    questions: [],
+    neutrals: [],
+    isPending: false,
+  });
+
+  // const [comments, setComments] = useState([]);
+  const [selected, setSelected] = useState(
+    commentHeaders.map((key) => ({
+      label: key,
+      value: key,
+    })) || [],
+  );
 
   return (
-    <div>
-      {isLoggedIn ? (
-        <div className="relative w-full">
-          <button
-            className="absolute right-5 top-5 rounded-md border border-black p-1.5 hover:bg-red-300"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-          <MainPage />
-        </div>
-      ) : (
-        <LoginPage setIsLoggedIn={setIsLoggedIn} />
-      )}
+    <div className="flex h-screen w-full flex-col bg-zinc-900 text-white">
+      <Router>
+        <Routes>
+          <Route
+            exact
+            path="/"
+            element={
+              <Header isLoggedIn={isLoggedIn} setIsLoggedIn={setIsLoggedIn}>
+                <Home
+                  isLoggedIn={isLoggedIn}
+                  options={options}
+                  setOptions={setOptions}
+                  selected={selected}
+                  setSelected={setSelected}
+                />
+              </Header>
+            }
+          />
+          <Route
+            path="dashboard/:videoId"
+            element={
+              <Sidebar
+                isLoggedIn={isLoggedIn}
+                setIsLoggedIn={setIsLoggedIn}
+                setSentimentsGroups={setSentimentsGroups}
+              >
+                <Dashboard />
+              </Sidebar>
+            }
+          />
+          <Route
+            path=":sentiment/:videoId"
+            element={
+              <Sidebar
+                isLoggedIn={isLoggedIn}
+                setIsLoggedIn={setIsLoggedIn}
+                setSentimentsGroups={setSentimentsGroups}
+              >
+                <Sentiment sentimentsGroups={sentimentsGroups} />
+              </Sidebar>
+            }
+          />
+          <Route
+            path="comments/:videoId"
+            element={
+              <Sidebar
+                isLoggedIn={isLoggedIn}
+                setIsLoggedIn={setIsLoggedIn}
+                setSentimentsGroups={setSentimentsGroups}
+              >
+                <Comments />
+              </Sidebar>
+            }
+          />
+          <Route
+            path="/live-stats/:videoId"
+            element={
+              <Sidebar isLoggedIn={isLoggedIn} setIsLoggedIn={setIsLoggedIn} setSentimentsGroups={setSentimentsGroups}>
+                <LiveStats />
+              </Sidebar>
+            }
+          />
+          {/* {/* <Route path="/about" element={<About />} /> */}
+        </Routes>
+      </Router>
     </div>
   );
 };
+
 export default App;

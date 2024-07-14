@@ -4,12 +4,23 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { Toaster } from 'react-hot-toast';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Modal from "react-modal";
+// Create a client
+const queryClient = new QueryClient()
+
+// Assuming your root element is the div with id 'root'
+Modal.setAppElement('#root');
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId="109273160691-lm8mldvomphvh4u73keksvis6iukspve.apps.googleusercontent.com">
-      <App />
+    <GoogleOAuthProvider clientId={process.env.REACT_APP_CLIENT_ID}>
+      <QueryClientProvider client={queryClient}>
+        <App />
+        <Toaster />
+      </QueryClientProvider>
     </GoogleOAuthProvider>
   </React.StrictMode>,
 );

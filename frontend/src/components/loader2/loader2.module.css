@@ -1,0 +1,35 @@
+.loader {
+  @apply flex h-full w-full flex-col before:flex before:h-full before:w-full before:flex-col before:items-center before:justify-center before:text-center before:text-8xl;
+}
+
+.loader::before {
+  content: "😐";
+  animation: emojiLoader 1.2s steps(7) infinite forwards 0s;
+}
+
+@keyframes emojiLoader {
+  0% {
+    content: "😐";
+  }
+  12.5% {
+    content: "😀";
+  }
+  25% {
+    content: "😂";
+  }
+  37.5% {
+    content: "🙄";
+  }
+  50% {
+    content: "😒";
+  }
+  62.5% {
+    content: "😤";
+  }
+  75% {
+    content: "🤔";
+  }
+  87.5% {
+    content: "😇";
+  }
+}

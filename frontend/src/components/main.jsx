@@ -13,7 +13,7 @@ import { MultiSelect } from "react-multi-select-component";
 import axios from "axios";
 
 export const MainPage = () => {
-  const [input, setInput] = useState([]);
+  const [input, setInput] = useState("");
   const [textarea, setTextarea] = useState(null);
   const [comments, setComments] = useState([]);
   const [categorize, setCategorize] = useState(null);

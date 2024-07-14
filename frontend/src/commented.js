@@ -412,3 +412,30 @@
 //       "https://www.googleapis.com/auth/youtube.force-ssl",
 //     ].join(" "),
 //   });
+
+
+// backend
+// const { UserRefreshClient } = require("google-auth-library");
+// app.post("/auth/google/refresh-token", async (req, res) => {
+//       const user = new UserRefreshClient(
+//         process.env.CLIENT_ID,
+//         process.env.CLIENT_SECRET,
+//         // req.body.refreshToken
+//         "1//0gr1LsqdArsJ_CgYIARAAGBASNwF-L9IrsMY3PUHQId4OrZ6J_VahK5nFeqn8SugZzVTP1sD1ffUcUCtJdfHj89jlfd0BZ1vJNLc"
+//       );
+//       const { credentials } = await user.refreshAccessToken(); // optain new tokens
+//       res.json(credentials);
+//     });
+
+
+
+// // getting the expiry in from access token by getTokenInfo for creatting cookie with expires at
+      // const { expires_in } = await getTokenInfo(access_token);
+      // console.log(expires_in);
+      // const expiresAt = new Date(Date.now() + expires_in * 1000);
+      // document.cookie = `access_token=${access_token}; expires=${expiresAt.toUTCString()}; path=/`;
+      // console.log("cookie access_token expire", expiresAt);
+      // console.log(
+      //   "cookie access_token expire attoUTCString",
+      //   expiresAt.toUTCString(),
+      // );
