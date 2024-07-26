@@ -53,8 +53,17 @@ export const fileTypes = [
   "xls"
 ]
 
+export const sentimentKeys = [
+  "positives",
+  "negatives",
+  "questions",
+  "neutrals",
+  "comments",
+];
+
 export const data = (data) => {
   return {
+    responsive: true,
     labels: ["Positive", "Negative", "Question", "Neutral"],
     datasets: [
       {
@@ -89,41 +98,41 @@ export const textCenter = (comments) => {
   };
 }
 
-export const progressbarData = ({comments, sentiments}) => {
+export const progressbarData = ({comments, sentiment}) => {
   return [
     {
-      count: sentiments?.positives?.length,
+      count: sentiment?.positives?.length,
       label: "Positive",
       color: "#22c55e",
       percentage: Math.floor(
-        (sentiments?.positives?.length / comments?.length) * 100,
+        (sentiment?.positives?.length / comments?.length) * 100,
       ),
       icon: FiThumbsUp,
     },
     {
-      count: sentiments?.negatives?.length,
+      count: sentiment?.negatives?.length,
       label: "Negative",
       color: "#ef4444",
       percentage: Math.floor(
-        (sentiments?.negatives?.length / comments?.length) * 100,
+        (sentiment?.negatives?.length / comments?.length) * 100,
       ),
       icon: FiThumbsDown,
     },
     {
-      count: sentiments?.questions?.length,
+      count: sentiment?.questions?.length,
       label: "Question",
       color: "#3b82f6",
       percentage: Math.floor(
-        (sentiments?.questions?.length / comments?.length) * 100,
+        (sentiment?.questions?.length / comments?.length) * 100,
       ),
       icon: BsQuestionDiamond,
     },
     {
-      count: sentiments?.neutrals?.length,
+      count: sentiment?.neutrals?.length,
       label: "Neutral",
       color: "#6b7280",
       percentage: Math.floor(
-        (sentiments?.neutrals?.length / comments?.length) * 100,
+        (sentiment?.neutrals?.length / comments?.length) * 100,
       ),
       icon: FiFlag,
     },

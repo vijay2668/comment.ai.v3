@@ -81,7 +81,7 @@ async function gemini(prompt) {
     // }
   );
 
-  console.log("response", response.text());
+  // console.log("response", response.text());
   return response.text();
   // fc = response.candidates[0].content.parts[0].functionCall.args.comments;
   // return fc;

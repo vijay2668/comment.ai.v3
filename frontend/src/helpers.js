@@ -1,6 +1,9 @@
 import axios from "axios";
 import exportFromJSON from "export-from-json";
 import toast from "react-hot-toast";
+import { FaRegUser } from "react-icons/fa";
+import { FiThumbsUp } from "react-icons/fi";
+import { Tooltip } from "./components/tooltip";
 
 function extractVideoId(url){
   // Regex pattern to match YouTube URLs
@@ -71,6 +74,57 @@ async function fetchComments({ videoId, options }){
   }
 };
 
+async function fetchRejectedComments({ videoId, options }){
+  try {
+    const response = await axios.post(
+      `http://localhost:5000/api/rejected-comments/${videoId}`,
+      { options }
+    );
+
+    const comments = [
+      ...response.data.items.map((comment) => ({
+        cid: comment.id,
+        text: comment.snippet.topLevelComment.snippet.textDisplay,
+        time: timeAgo(comment.snippet.topLevelComment.snippet.publishedAt),
+        author: comment.snippet.topLevelComment.snippet.authorDisplayName,
+        channel: comment.snippet.topLevelComment.snippet.authorChannelId.value,
+        votes: comment.snippet.topLevelComment.snippet.likeCount,
+        replies: comment.snippet.totalReplyCount,
+        photo: comment.snippet.topLevelComment.snippet.authorProfileImageUrl,
+        heart: comment.snippet.topLevelComment.snippet.canRate,
+        reply: comment.snippet.canReply,
+        publishedAt: formatDate(
+          comment.snippet.topLevelComment.snippet.publishedAt
+        )
+      })),
+      ...(options?.replies
+        ? response.data.items
+            .filter((item) => Number(item.snippet.totalReplyCount) > 0)
+            .flatMap((item) =>
+              item.replies.comments.map((reply) => ({
+                cid: reply.id,
+                text: reply.snippet.textDisplay,
+                time: timeAgo(reply.snippet.publishedAt),
+                author: reply.snippet.authorDisplayName,
+                channel: reply.snippet.authorChannelId.value,
+                votes: reply.snippet.likeCount,
+                replies: 0,
+                photo: reply.snippet.authorProfileImageUrl,
+                heart: reply.snippet.canRate,
+                reply: true,
+                publishedAt: formatDate(reply.snippet.publishedAt)
+              }))
+            )
+        : [])
+    ]
+
+    return comments
+  } catch (err) {
+    console.error("Error fetching rejected comments:", err.message);
+    toast.error(err.message)
+  }
+};
+
 // async function fetchComments({ input, setComments, options }){
 //   try {
 //     // Check if input exists and is not an empty string
@@ -134,11 +188,11 @@ async function fetchComments({ videoId, options }){
 
 async function handleCategorize(comments){
   try {
-    const sentiments = await axios.post("http://localhost:5000/api/categorize", {
+    const sentiment = await axios.post("http://localhost:5000/api/categorize", {
       comments: JSON.stringify(comments)
     }).then((res)=> res.data);
 
-    return sentiments
+    return sentiment
   } catch (error) {
     console.error("Error Categorization:", error.message);
   }
@@ -157,10 +211,10 @@ async function handleCategorize(comments){
 //   }
 // };
 
-async function handleSimplified(sentiment){
+async function handleSimplified(sentimentValue){
   try {
     const response = await axios.post("http://localhost:5000/api/simplified", {
-      sentiment
+      sentiment: sentimentValue
     });
 
     // console.log(response.data);
@@ -200,7 +254,7 @@ async function handleSimplified(sentiment){
 //   }
 // };
 
-async function handleGroups({ simplified_comments, sentiment }){
+async function handleGroups({ simplified_comments, sentimentValue }){
   try {
     const response = await axios.post("http://localhost:5000/api/groups", {
       simplified_comments
@@ -214,15 +268,15 @@ async function handleGroups({ simplified_comments, sentiment }){
           let newGroup = { ...group };
           newGroup.group_of_comments = newGroup?.group_of_comments?.filter(
             (comment) =>
-              sentiment.some((item) => item?.cid === comment?.cid)
+              sentimentValue.some((item) => item?.cid === comment?.cid)
           );
           return newGroup.group_of_comments.length !== 0 ? newGroup : null;
         })
         .filter(Boolean)
 
-    const remaining = sentiment.filter((item)=> {
+    // const remaining = sentiment.filter((item)=> {
       
-    })
+    // })
     
     return data
   } catch (error) {
@@ -260,10 +314,8 @@ async function handleGroups({ simplified_comments, sentiment }){
 //   }
 // };
 
-async function reply(group, setIsPending, reply){
-  try {
-    setIsPending(true)
-    const refresh_token =  getCookie('refresh_token');
+async function getAccessToken() {
+  const refresh_token =  getCookie('refresh_token');
     let access_token =  getCookie('access_token');
     
     if(!access_token) {
@@ -286,7 +338,15 @@ async function reply(group, setIsPending, reply){
       document.cookie = `access_token=${access_token}; expires=${expiresAt.toUTCString()}; path=/`;
     }
 
-    const promises = group?.group_of_comments.map(async (comment) => {
+    return access_token
+}
+
+async function replies(group, setIsPending, reply){
+  try {
+    setIsPending(true)
+    const access_token = await getAccessToken()
+
+    const promises = group?.map(async (comment) => {
       const response = await axios.post(`https://youtube.googleapis.com/youtube/v3/comments?part=snippet&key=${process.env.REACT_APP_API_KEY}`, {
         "snippet": {
           "parentId": comment?.cid,
@@ -314,6 +374,165 @@ async function reply(group, setIsPending, reply){
   } finally {
     toast.success("Reply sent successfully to this group");
     setIsPending(false)
+  }
+};
+
+const replaceUsernameToChannelId = (text, comment) => {
+  const regex = /@(\w+)/;
+  const match = text.match(regex);
+  if (match && match[1]) {
+    const username = match[1];
+    return text.replace(`@${username}`, `@${comment?.channel}`);
+  }
+  return text
+}
+
+
+async function reply(comment, setRespond, reply){
+  try {
+    setRespond((prev) => ({ ...prev, isResponding: true }))
+    const access_token = await getAccessToken()
+
+    const response = await axios.post(`https://youtube.googleapis.com/youtube/v3/comments?part=snippet&key=${process.env.REACT_APP_API_KEY}`, {
+      "snippet": {
+        "parentId": comment?.parentId ? comment?.parentId : comment?.cid,
+        "textOriginal": replaceUsernameToChannelId(reply, comment) 
+      }
+    }, {
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    })
+
+    
+    return response.data
+  } catch (err) {
+    console.error("Error replying comment", err.message);
+    toast.error(err.message)
+    setRespond((prev) => ({ ...prev, isResponding: false }))
+  } finally {
+    toast.success("Reply sent successfully to this Comment");
+    setRespond({ isResponding: false, showTextarea: false, comment: null });
+  }
+};
+
+async function deleteComments(group, setIsDeleting){
+  try {
+    setIsDeleting(true)
+    const access_token = await getAccessToken()
+    const currentUser = await getCurrentUser()
+
+    const promises = group?.map(async (comment) => {
+      const { cid, channel } = comment;
+      if (currentUser.youtubeChannelId === channel) {
+        const response = await axios.delete(`https://youtube.googleapis.com/youtube/v3/comments?id=${cid}&key=${process.env.REACT_APP_API_KEY}`, {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json'
+          }
+        })
+        
+        return response
+      } else {
+        const response = await axios.post(`https://youtube.googleapis.com/youtube/v3/comments/setModerationStatus?id=${cid}&moderationStatus=rejected&key=${process.env.REACT_APP_API_KEY}`, {}, {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json'
+          }
+        })
+      
+        return response
+      }
+    });
+
+    const results = await Promise.all(promises);
+    // console.log(results);
+    return results
+  } catch (err) {
+    console.error("Error deleting comments", err.message);
+    toast.error(err.message)
+    setIsDeleting(false)
+  } finally {
+    toast.success(`${group?.length === 1 ? "Comment": "Comments"} deleted successfully!`);
+    setIsDeleting(false)
+  }
+};
+
+async function updateComment(comment, setUpdate, value, mentionedUserComment){
+  try {
+    setUpdate((prev) => ({ ...prev, isUpdating: true }))
+    const access_token = await getAccessToken()
+
+    const { cid } = comment;
+    
+    const response = await axios.put(`https://youtube.googleapis.com/youtube/v3/comments?part=snippet&key=${process.env.REACT_APP_API_KEY}`, {
+      "id": cid,
+      "snippet": {
+        "textOriginal": mentionedUserComment ? replaceUsernameToChannelId(value, mentionedUserComment) : value
+      }
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
+
+    return response.data
+    // console.log(response.data);
+  } catch (err) {
+    console.error("Error updating comment", err.message);
+    toast.error(err.message)
+    setUpdate((prev) => ({ ...prev, isUpdating: false }))
+  } finally {
+    toast.success("Comment updated successfully!")
+    setUpdate({ isUpdating: false, showTextarea: false, comment: null });
+  }
+};
+
+async function moderateComments(comments, setIsModerating, banAuthor = false){
+  try {
+    setIsModerating(true)
+    const access_token = await getAccessToken()
+
+    const promises = comments?.map(async (comment) => {
+      const { cid, moderationStatus } = comment;
+      
+      if(banAuthor === true && moderationStatus === "rejected") {
+        const response = await axios.post(`https://youtube.googleapis.com/youtube/v3/comments/setModerationStatus?id=${cid}&moderationStatus=${moderationStatus}&banAuthor=${banAuthor}&key=${process.env.REACT_APP_API_KEY}`, {}, {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json'
+          }
+        })
+
+        return response
+      } else {
+        const response = await axios.post(`https://youtube.googleapis.com/youtube/v3/comments/setModerationStatus?id=${cid}&moderationStatus=${moderationStatus}&key=${process.env.REACT_APP_API_KEY}`, {}, {
+          headers: {
+            'Authorization': `Bearer ${access_token}`,
+            'Accept': 'application/json'
+          }
+        })
+      
+        return response
+      }
+  })
+    
+    const results = await Promise.all(promises);
+    // console.log(results);
+    return results
+    // console.log(response.data);
+  } catch (err) {
+    console.error("Error moderating comments", err.message);
+    toast.error(err.message)
+    setIsModerating(false)
+  } finally {
+    toast.success(`${comments?.length === 1 ? "Comment": "Comments"} Moderated successfully!`);
+    setIsModerating(false)
   }
 };
 
@@ -471,18 +690,36 @@ function getSessionStorage(name){
 
 // Helper functions to render table rows
 const renderRow = (comments, index, style) => (
-  <tr
+  <div
     key={index}
-    className="flex h-fit w-full items-center divide-x divide-[#252C36]"
     style={style}
+    className="flex h-fit w-full items-center space-x-4 px-4 py-2"
   >
-    {/* <td className="h-full min-w-16 px-4 py-2 text-center">{index + 1}</td> */}
-    <td className="h-full w-full overflow-hidden px-4 py-2">
-      <p className="scrollbar-hide overflow-scroll whitespace-nowrap">
-        {comments[index]?.text}
-      </p>
-    </td>
-  </tr>
+    <div className="flex w-full items-center space-x-4 overflow-hidden">
+      <div className="flex min-h-10 min-w-10 items-center justify-center rounded-full border border-[#252C36] text-[#7D828F]">
+        <FaRegUser className="text-lg" />
+      </div>
+      <div className="flex flex-col space-y-1 overflow-hidden">
+        <div className="scrollbar-hide w-full overflow-scroll space-x-2 flex items-center whitespace-nowrap text-sm">
+          <span>{comments[index]?.author}</span>
+          <span className="text-[#7D828F]">{comments[index]?.time}</span>
+        </div>
+        <div className="w-full overflow-scroll scrollbar-hide font-thin whitespace-nowrap">
+          {comments[index]?.text}
+        </div>
+      </div>
+    </div>
+    <div className="flex min-w-fit items-center justify-start space-x-2">
+      <Tooltip content="Like Count">
+        <div className="flex min-w-fit items-center justify-start space-x-2">
+          <span>{comments[index]?.votes}</span>
+          <div>
+            <FiThumbsUp className="text-green-500" />
+          </div>
+        </div>
+      </Tooltip>
+    </div>
+  </div>
 );
 
 function timeSince(date) {
@@ -521,20 +758,105 @@ function formatNumber(num) {
   return num.toString();
 }
 
+const linkRegex = /(https?\:\/\/)?(www\.)?[^\s]+\.[^\s]+/g;
+
+function replacer(matched) {
+  let withProtocol = matched;
+
+  if (!withProtocol.startsWith("http")) {
+    withProtocol = "http://" + matched;
+  }
+
+  const newStr = `<a
+    class="text-link"
+    href="${withProtocol}"
+  >
+    ${matched}
+  </a>`;
+
+  return newStr;
+}
+
+function sortByCid(array) {
+  return array.sort((a, b) => (a.cid > b.cid ? 1 : -1));
+}
+
+function arraysAreEqual(array1, array2) {
+  if (array1.length !== array2.length) {
+    return false;
+  }
+
+  const sortedArray1 = sortByCid([...array1]);
+  const sortedArray2 = sortByCid([...array2]);
+
+  for (let i = 0; i < sortedArray1.length; i++) {
+    if (
+      sortedArray1[i].cid !== sortedArray2[i].cid ||
+      sortedArray1[i].text !== sortedArray2[i].text
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Function to transform text with link
+function transformTextWithLink(text) {
+  const regex = /@@(\w+)/g;
+  const parts = text.split(regex);
+  
+  return parts.map((part, index) => {
+      if (index % 2 === 1) { // Every odd index will be the username
+          return (
+              <a key={index} target="_blank" rel="noreferrer" href={`https://www.youtube.com/@${part}`} className="text-blue-400">
+                  @{part}
+              </a>
+          );
+      }
+      return part; // Regular text parts
+  });
+}
+
+// function to fetch currentUser
+async function getCurrentUser() {
+  const access_token = await getAccessToken()
+
+   const channelId = await axios
+          .get(
+            `https://www.googleapis.com/youtube/v3/channels?part=id&mine=true`,
+            {
+              headers: {
+                Authorization: `Bearer ${access_token}`,
+                Accept: "application/json",
+              },
+            },
+          )
+          .then((res) => res.data.items[0].id);
+
+                
+  const currentUserChannel = await axios.get(`http://localhost:5000/api/channel/${channelId}`).then((res)=> res.data);
+  return currentUserChannel;
+}
+
+async function getVideoSession(youtubeVideoId) {
+  const currentVideoSession = await axios.get(`http://localhost:5000/api/video/${youtubeVideoId}`).then((res)=> res.data);
+  return currentVideoSession;
+}
+
+async function getSentiment(videoId) {
+  const sentiment = await axios.get(`http://localhost:5000/api/sentiment/${videoId}`).then((res)=> res.data);
+  return sentiment;
+}
+
+async function getGroupification(sentimentId, sentimentKey) {
+  const groupification = await axios.get(`http://localhost:5000/api/groupification/${sentimentId}/${sentimentKey}`).then((res)=> res.data);
+  return groupification;
+}
+
+
 export {
-  fetchComments,
-  extractVideoId,
-  handleCategorize,
-  handleSimplified,
-  handleGroups,
-  download,
-  timeAgo,
-  formatDate,
-  getCookie,
-  reply,
-  getTokenInfo,
-  getSessionStorage,
-  renderRow,
-  timeSince,
-  formatNumber
+  arraysAreEqual, deleteComments, download, extractVideoId, fetchComments, fetchRejectedComments, formatDate, formatNumber, getAccessToken, getCookie, getCurrentUser, getVideoSession, getSentiment, getGroupification, getSessionStorage, getTokenInfo, handleCategorize, handleGroups, handleSimplified, linkRegex, moderateComments, renderRow, replacer, replies,
+  reply, timeAgo, timeSince, transformTextWithLink, updateComment
 };
+

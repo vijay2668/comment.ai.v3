@@ -8,12 +8,96 @@ datasource db {
   relationMode = "prisma"
 }
 
-model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @unique
-  email     String   @unique
-  name      String
-  photo     String
+model Channel {
+  id String @id @default(auto()) @map("_id") @db.ObjectId //default channel Id
+
+  youtubeChannelId String @unique //youtube channel Id
+
+  email String @unique //youtube channel Email
+  name  String //youtube channel Name
+  photo String //youtube channel Name
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  videos         Video[]
+  Sentiment      Sentiment[]
+  Groupification Groupification[]
+  // BannedAuthor   BannedAuthor[]
 }
+
+model Video {
+  id String @id @default(auto()) @map("_id") @db.ObjectId //default video Id
+
+  youtubeVideoId   String @unique //youtube video Id
+  youtubeChannelId String //youtube channel Id
+
+  channelId String  @db.ObjectId //db object as channel
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sentiments     Sentiment[]
+  Groupification Groupification[]
+
+  @@index([channelId])
+}
+
+model Sentiment {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  videoId String @db.ObjectId
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  channelId String  @db.ObjectId //db object as channel
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  sentiment_data Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  groupifications Groupification[]
+
+  @@index([videoId])
+  @@index([channelId])
+}
+
+model Groupification {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  videoId String @db.ObjectId
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  channelId String  @db.ObjectId //db object as channel
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  sentimentId String    @db.ObjectId
+  sentiment   Sentiment @relation(fields: [sentimentId], references: [id], onDelete: Cascade)
+
+  sentimentKey String
+
+  groupification_data Json[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([videoId])
+  @@index([sentimentId])
+  @@index([channelId])
+}
+
+// model BannedAuthor {
+//   id String @id @default(auto()) @map("_id") @db.ObjectId
+
+//   channelId String  @db.ObjectId //db object as channel
+//   channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+//   author Json
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   @@index([channelId])
+// }

@@ -4,7 +4,7 @@ import Home from "./pages/home";
 import Dashboard from "./pages/dashboard";
 import LiveStats from "./pages/live-stats";
 import { useState } from "react";
-import { getCookie } from "./helpers";
+import { getCookie, getSessionStorage } from "./helpers";
 import { Header } from "./components/header";
 import { Sidebar } from "./components/sidebar";
 import { commentHeaders } from "./utils";
@@ -23,14 +23,6 @@ const App = () => {
     max: "50",
     file_type: "csv",
     file_name: "document",
-  });
-
-  const [sentimentsGroups, setSentimentsGroups] = useState({
-    positives: [],
-    negatives: [],
-    questions: [],
-    neutrals: [],
-    isPending: false,
   });
 
   // const [comments, setComments] = useState([]);
@@ -66,21 +58,19 @@ const App = () => {
               <Sidebar
                 isLoggedIn={isLoggedIn}
                 setIsLoggedIn={setIsLoggedIn}
-                setSentimentsGroups={setSentimentsGroups}
               >
                 <Dashboard />
               </Sidebar>
             }
           />
           <Route
-            path=":sentiment/:videoId"
+            path="dashboard/:sentimentKey/:videoId"
             element={
               <Sidebar
                 isLoggedIn={isLoggedIn}
                 setIsLoggedIn={setIsLoggedIn}
-                setSentimentsGroups={setSentimentsGroups}
               >
-                <Sentiment sentimentsGroups={sentimentsGroups} />
+                <Sentiment />
               </Sidebar>
             }
           />
@@ -90,7 +80,6 @@ const App = () => {
               <Sidebar
                 isLoggedIn={isLoggedIn}
                 setIsLoggedIn={setIsLoggedIn}
-                setSentimentsGroups={setSentimentsGroups}
               >
                 <Comments />
               </Sidebar>
@@ -99,7 +88,10 @@ const App = () => {
           <Route
             path="/live-stats/:videoId"
             element={
-              <Sidebar isLoggedIn={isLoggedIn} setIsLoggedIn={setIsLoggedIn} setSentimentsGroups={setSentimentsGroups}>
+              <Sidebar
+                isLoggedIn={isLoggedIn}
+                setIsLoggedIn={setIsLoggedIn}
+              >
                 <LiveStats />
               </Sidebar>
             }

@@ -1,7 +1,13 @@
 import { useState } from "react";
-import { download, extractVideoId, fetchComments } from "../helpers";
+import {
+  download,
+  extractVideoId,
+  fetchComments,
+  getCookie,
+  getCurrentUser,
+} from "../helpers";
 import toast from "react-hot-toast";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Modal from "react-modal";
 import { IoClose } from "react-icons/io5";
 import {
@@ -13,9 +19,21 @@ import {
 } from "../utils.js";
 import { MultiSelect } from "react-multi-select-component";
 import { AiOutlineDownload } from "react-icons/ai";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import axios from "axios";
 
 const Home = ({ isLoggedIn, options, setOptions, selected, setSelected }) => {
+  // Queries and Mutations
+
+  const refresh_token = getCookie("refresh_token");
+
+  const { data: currentUser } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: getCurrentUser,
+    refetchOnWindowFocus: false,
+    enabled: !!refresh_token,
+  });
+
   const navigate = useNavigate();
 
   const [youtubeVideoLink, setYoutubeVideoLink] = useState(""); // youtube video link input
@@ -27,7 +45,7 @@ const Home = ({ isLoggedIn, options, setOptions, selected, setSelected }) => {
     setIsValidLink(youtubeRegex.test(value));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     // console.log("youtubeVideoLink", youtubeVideoLink);
     if (!isLoggedIn) {
@@ -35,8 +53,29 @@ const Home = ({ isLoggedIn, options, setOptions, selected, setSelected }) => {
       return;
     }
 
+    //video owner's video id
     const videoId = extractVideoId(youtubeVideoLink);
-    navigate(`/dashboard/${videoId}?sort=${options?.sort}&max=${options?.max}`);
+
+    const videoIdOwnerChannelId = await axios
+      .get(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${process.env.REACT_APP_API_KEY}`,
+      )
+      .then((res) => res.data.items[0].snippet.channelId);
+
+    sessionStorage.clear();
+
+    const createVideoSessionId = await axios.post(
+      `http://localhost:5000/api/video/${videoId}`,
+      {
+        channelId: currentUser?.id, //currentUser's channel id
+        youtubeChannelId: videoIdOwnerChannelId, //video owner's channel id
+      },
+    );
+
+    if (createVideoSessionId.status === 200)
+      navigate(
+        `/comments/${videoId}?sort=${options?.sort}&max=${options?.max}`,
+      );
   };
 
   const {

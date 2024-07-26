@@ -101,7 +101,7 @@ const LiveStats = () => {
       </div>
     );
 
-  console.log(channel);
+  // console.log(channel);
   // console.log(isViewsUpdated);
 
   const {
@@ -120,7 +120,7 @@ const LiveStats = () => {
   } = channel;
 
   return (
-    <div className="scrollbar-hide flex h-full w-full flex-col space-y-6 overflow-scroll">
+    <div className="flex h-full w-full flex-col space-y-6 overflow-scroll overflow-x-hidden">
       {/* row one */}
       <div className="flex min-h-[22rem] w-full flex-col space-y-8 rounded-2xl border border-[#252C36] bg-[#0E1420] p-4">
         <div className="flex flex-col">
@@ -210,7 +210,7 @@ const LiveStats = () => {
           </div>
           <div className="flex w-full flex-1 flex-col items-center justify-center space-y-2">
             <p className="text-[#7D828F]">Category</p>
-            <p>{topicCategories[1].split("/").pop()}</p>
+            <p>{topicCategories[1]?.split("/").pop()}</p>
           </div>
           <div className="flex w-full flex-1 flex-col items-center justify-center space-y-2">
             <p className="text-[#7D828F]">Channel Age</p>

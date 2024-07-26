@@ -76,5 +76,33 @@ ul {
 
 .szh-accordion__item-content,
 .szh-accordion__item-panel {
-  @apply flex h-fit w-full flex-col overflow-hidden;
+  @apply flex h-full w-full flex-col space-y-3 overflow-hidden;
 }
+
+.szh-accordion__item-panel {
+  @apply px-4 pb-4;
+}
+
+/* menu component */
+
+.szh-menu {
+  border-radius: 0.5rem !important;
+  /* left: -135px !important; */
+  top: 20px !important;
+}
+
+.animate-scale {
+  animation: scale 10s ease-in-out; /* Change duration to 10 seconds */
+  transform-origin: left; /* Set the origin to the left */
+}
+
+@keyframes scale {
+  0% {
+    transform: scaleX(0);
+  }
+
+  100% {
+    transform: scaleX(1); /* Use scaleX(1) for normal scaling */
+  }
+}
+

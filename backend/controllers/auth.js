@@ -1,6 +1,7 @@
 const { db } = require("../lib/db");
 const { OAuth2Client } = require("google-auth-library");
 const jwt = require("jsonwebtoken");
+const axios = require("axios");
 
 const oAuth2Client = new OAuth2Client(
   process.env.CLIENT_ID,
@@ -13,23 +14,32 @@ const auth = async (req, res) => {
     const { tokens } = await oAuth2Client.getToken(req.body.code); // exchange code for tokens
     // console.log(tokens);
 
-    const { sub: userId, picture: photo, email, name } = jwt.decode(
-      tokens.id_token
-    );
+    const { access_token } = tokens;
 
-    const isUserExist = await db.user
+    const { picture: photo, email, name } = jwt.decode(tokens.id_token);
+
+    const youtubeChannelId = await axios
+      .get(`https://www.googleapis.com/youtube/v3/channels?part=id&mine=true`, {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          Accept: "application/json"
+        }
+      })
+      .then(res => res.data.items[0].id);
+
+    const isUserExist = await db.channel
       .findFirst({
         where: {
-          userId
+          youtubeChannelId
         }
       })
       .then(res => (res ? true : false));
     // console.log(isUserExist);
 
     if (!isUserExist) {
-      await db.user.create({
+      await db.channel.create({
         data: {
-          userId,
+          youtubeChannelId,
           email,
           name,
           photo

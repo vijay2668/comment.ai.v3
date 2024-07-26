@@ -1,120 +1,394 @@
-import { FixedSizeList as List } from "react-window";
-import { getSessionStorage, renderRow, reply } from "../helpers";
-import { useParams } from "react-router-dom";
-import { Accordion, AccordionItem } from "@szhsin/react-accordion";
-import { IoIosArrowDown } from "react-icons/io";
-import { cn } from "../utils";
-import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { BiDotsHorizontalRounded } from "react-icons/bi";
+import { FaLayerGroup } from "react-icons/fa";
+import { useParams } from "react-router-dom";
+import { CommentsComp } from "../components/comments";
+import { Loader } from "../components/loader/loader";
+import { MenuComp } from "../components/menu";
+import { RenderAccordion } from "../components/render-accordion";
+import {
+  arraysAreEqual,
+  deleteComments,
+  getCookie,
+  getCurrentUser,
+  getGroupification,
+  getSentiment,
+  getSessionStorage,
+  getVideoSession,
+  handleGroups,
+  handleSimplified,
+  moderateComments,
+} from "../helpers";
+import { cn } from "../utils";
 
-export const Sentiment = ({ sentimentsGroups }) => {
-  const { sentiment } = useParams();
-  const { sentiments } = getSessionStorage("comments_and_sentiments") || {};
-  const sentimentValue = sentiments ? sentiments[sentiment] : [];
-  const recentGroups = getSessionStorage("sentimentsGroups") || {};
-  const { [sentiment]: groups } = sentimentsGroups;
-  const [currentIndex, setCurrentIndex] = useState(null);
-  const [isPending, setIsPending] = useState(false);
+export const Sentiment = () => {
+  const refresh_token = getCookie("refresh_token");
+  // Queries and Mutations
 
-  const SentimentRow = (props) =>
-    renderRow(sentimentValue, props.index, props.style);
+  const { data: currentUser } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: getCurrentUser,
+    refetchOnWindowFocus: false,
+    enabled: !!refresh_token,
+  });
 
-  const handleReply = async (e, group) => {
-    e.preventDefault();
-    const { value } = e.target[0];
-    if (!value || value.trim() === "") {
-      toast.error("Your reply is empty!");
-    } else {
-      const res = await reply(group, setIsPending, value);
-      console.log(res);
-      if (res) e.target[0].value = "";
-    }
+  const { sentimentKey, videoId } = useParams();
+
+  const { data: videoSession } = useQuery({
+    queryKey: ["videoSession"],
+    queryFn: () => getVideoSession(videoId),
+    refetchOnWindowFocus: false,
+    enabled: !!videoId,
+  });
+
+  const { data: recentSentiment, isFetching: isFetchingSentiment } = useQuery({
+    queryKey: ["recentSentiment"],
+    queryFn: () => getSentiment(videoSession.id),
+    refetchOnWindowFocus: false,
+    enabled: !!videoSession,
+  });
+
+  const { data: recentGroupification, isFetching: isFetchingGroupification } =
+    useQuery({
+      queryKey: [`recentGroupification-${sentimentKey}`],
+      queryFn: () => getGroupification(recentSentiment.id, sentimentKey),
+      refetchOnWindowFocus: false,
+      enabled: !!recentSentiment,
+    });
+
+  const [sentiment, setSentiment] = useState(null);
+
+  useEffect(() => {
+    if (!recentSentiment) return;
+    setSentiment(recentSentiment.sentiment_data);
+  }, [recentSentiment]);
+
+  const [groupification, setGroupification] = useState([]);
+
+  useEffect(() => {
+    if (!recentGroupification) return;
+    setGroupification(recentGroupification.groupification_data);
+  }, [recentGroupification]);
+
+  const sentimentValue = sentiment ? sentiment[sentimentKey] : [];
+
+  // Queries and Mutations
+  const { isPending, mutateAsync: generateGroups } = useMutation({
+    mutationFn: async (sentimentValue) => {
+      const simplified_comments = await handleSimplified(sentimentValue);
+      return await handleGroups({ simplified_comments, sentimentValue });
+    },
+    onSuccess: async (latestGroupification) => {
+      // console.log(
+      //   "groupification generated successfully:",
+      //   latestGroupification,
+      // );
+
+      await axios.post(
+        `http://localhost:5000/api/groupification/${recentSentiment.id}/${sentimentKey}`, //getLastRecentSentiment.id as sentimentId as db.sentiment.id & // sentimentKey as (positives, negatives, questions, neutrals, comments)
+        {
+          videoId: videoSession.id, // videoId as db.video.id
+          channelId: currentUser.id, //currentUser's channel id
+          groupification_data: latestGroupification, //groupification data
+        },
+      );
+
+      setGroupification(latestGroupification);
+      // console.log(latestGroupification);
+
+      toast.custom(
+        (t) => (
+          <div
+            onClick={() => {
+              setTab(1);
+              toast.dismiss(t.id);
+            }}
+            className={`${
+              t.visible ? "animate-enter" : "animate-leave"
+            } pointer-events-auto flex w-full max-w-md cursor-pointer flex-col overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5`}
+          >
+            <div className="flex w-full">
+              <div className="w-0 flex-1 p-4">
+                <div className="flex items-start">
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-medium text-gray-900">Done 👍</p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Click here to check
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="animate-scale h-1 bg-red-500"></div>
+          </div>
+        ),
+        {
+          position: "bottom-right",
+          duration: 10000,
+        },
+      );
+    },
+  });
+
+  const [_dataCopy, set_dataCopy] = useState([]);
+
+  const [tab, setTab] = useState(0);
+
+  // operations states start
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isModerating, setIsModerating] = useState(false);
+
+  const [showCheckboxes, setShowCheckboxes] = useState(false);
+  const [selected, setSelected] = useState([]);
+  // operations states end
+
+  const handleModerator = async (moderationComments, banAuthor = false) => {
+    const res = await moderateComments(
+      moderationComments,
+      setIsModerating,
+      banAuthor,
+    );
+    // console.log(res);
+
+    if (res[0].status !== 204) return;
+    const recentModeration = getSessionStorage("moderation") || [];
+
+    const copy_of_moderations = [...recentModeration].filter(
+      (com) =>
+        !moderationComments.some(
+          (moderationComment) => moderationComment.cid === com.cid,
+        ),
+    );
+
+    const filteredList = _dataCopy.filter(
+      (com) =>
+        !moderationComments.some(
+          (moderationComment) => moderationComment.cid === com.cid,
+        ),
+    );
+
+    set_dataCopy(filteredList);
+
+    sessionStorage.setItem(
+      "moderation",
+      JSON.stringify([
+        ...moderationComments.map((moderationComment) => ({
+          ...moderationComment,
+          banAuthor,
+        })),
+        ...copy_of_moderations,
+      ]),
+    );
+    setSelected([]);
   };
 
-  const renderAccordion = (groups) => (
-    <Accordion className="scrollbar-hide flex max-h-[50%] w-full flex-col divide-y divide-[#252C36] overflow-scroll rounded-2xl border border-[#252C36] bg-[#0E1420]">
-      {groups.map((group, index) => (
-        <AccordionItem
-          key={index}
-          header={
-            <div
-              onClick={() => {
-                setCurrentIndex((prev) => (prev === index ? null : index));
-              }}
-              className="flex w-full items-center space-x-2 overflow-hidden pb-2"
-            >
-              <div className="scrollbar-hide flex w-full overflow-hidden whitespace-nowrap">
-                {`${group.group_about} :`}
-              </div>
-              <div>
-                <IoIosArrowDown
-                  className={cn(
-                    currentIndex === index && "-rotate-180",
-                    "text-xl text-white transition-transform duration-[0.2s] ease-in-out",
-                  )}
-                />
-              </div>
-            </div>
-          }
-          className="flex-col divide-y divide-[#252C36] px-4 py-3"
-        >
-          <form onSubmit={(e) => handleReply(e, group)}>
-            <ul className="scrollbar-hide flex h-fit max-h-40 w-full flex-col overflow-scroll border-b border-[#252C36] py-2">
-              {group.group_of_comments.map((group_of_comment, index) => (
-                <li key={index}>{group_of_comment.text}</li>
-              ))}
-            </ul>
-            <div className="flex w-full space-x-2">
-              <textarea className="scrollbar-hide mt-2 h-20 w-full resize-none rounded-xl border border-[#252C36] bg-[#1D242E] px-4 py-2 focus:outline-none" />
-              <button
-                type="submit"
-                className="mt-2 h-fit rounded-full bg-blue-600 px-4 py-2 text-white"
-              >
-                Send
-              </button>
-            </div>
-          </form>
-        </AccordionItem>
-      ))}
-    </Accordion>
-  );
+  // menu operations start
+  const commonMenuOperations = [
+    {
+      label: "Hide user from channel",
+      onClick: (e) => {
+        const { value } = e;
+        if (
+          value.some(
+            (comment) => comment.channel === currentUser.youtubeChannelId,
+          )
+        ) {
+          toast.error("You can't Ban yourself, Please unSelect your Comments");
+          return;
+        }
+        // console.log("banAuthor", e);
+        handleModerator(
+          value.map((comment) => ({
+            ...comment,
+            moderationStatus: "rejected",
+          })),
+          true,
+        );
+      },
+    },
+    {
+      label: "Delete",
+      onClick: async (e) => {
+        const { value } = e;
+        const res = await deleteComments(value, setIsDeleting);
+
+        if (res[0].status !== 204) return;
+
+        // console.log("delete", value);
+        const filteredList = _dataCopy.filter(
+          (com) => !value.some((comment) => comment.cid === com.cid),
+        );
+
+        set_dataCopy(filteredList);
+        setSelected([]);
+      },
+    },
+  ];
+
+  // menu operations end
+
+  // console.log(currentUser)
+  // console.log(videoSession)
+  if (isFetchingSentiment || isFetchingGroupification)
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center">
+        <Loader />
+      </div>
+    );
+
+  if (!currentUser)
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center">
+        User not Found
+      </div>
+    );
+
+  if (!videoSession)
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center">
+        VideoSession not Found
+      </div>
+    );
 
   return (
-    <div className="flex h-full w-full flex-col space-y-6 overflow-hidden">
-      {groups && groups.length > 0
-        ? renderAccordion(groups)
-        : recentGroups[sentiment] && recentGroups[sentiment].length > 0
-          ? renderAccordion(recentGroups[sentiment])
-          : null}
-      <table
-        className={cn(
-          groups?.length > 0 && recentGroups?.[sentiment]?.length > 0
-            ? "max-h-[50%]"
-            : "max-h-full",
-          "flex h-full w-full flex-col divide-y divide-[#252C36] rounded-2xl border border-[#252C36] bg-[#0E1420]",
-        )}
-      >
-        <thead className="flex h-fit w-full flex-col">
-          <tr className="flex h-full w-full flex-col">
-            <th className="h-full w-full px-4 py-2 uppercase">
-              {sentiment?.slice(0, -1)} - {sentiments[sentiment]?.length}
-            </th>
-          </tr>
-        </thead>
-        <tbody
-          id="table_body"
-          className="flex h-full w-full flex-col overflow-hidden"
-        >
-          <List
-            height={600}
-            itemCount={sentimentValue.length}
-            itemSize={50}
-            width="100%"
+    <div className="flex h-full w-full flex-col space-y-2 overflow-hidden">
+      <div className="flex h-fit w-full items-center justify-between px-4">
+        <div className="h-fit w-fit text-xl font-bold capitalize">
+          {showCheckboxes
+            ? `Selected - ${selected?.length}`
+            : tab === 0
+              ? `${sentimentKey?.slice(0, -1)} - ${sentimentValue?.length}`
+              : `Categorize - ${groupification.length}`}
+        </div>
+        {videoSession?.youtubeChannelId === currentUser?.youtubeChannelId &&
+          _dataCopy.length > 1 && (
+            <div className="flex h-fit w-fit items-center space-x-2">
+              {showCheckboxes ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCheckboxes(false);
+                      setSelected([]);
+                    }}
+                    className="h-fit rounded-full px-4 py-2 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:text-white/50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelected((prev) =>
+                        arraysAreEqual(prev, _dataCopy) ? [] : _dataCopy,
+                      );
+                    }}
+                    className="h-fit rounded-full bg-blue-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-blue-600/50 disabled:text-white/50"
+                  >
+                    {arraysAreEqual(selected, _dataCopy)
+                      ? "Unselect All"
+                      : "Select All"}
+                  </button>
+                  {selected.length > 0 && (
+                    <div className="flex h-fit w-fit items-center justify-start space-x-2">
+                      <MenuComp
+                        options={commonMenuOperations}
+                        data={selected}
+                        isPending={isDeleting || isModerating}
+                      >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-800/80">
+                          <BiDotsHorizontalRounded className="text-2xl" />
+                        </div>
+                      </MenuComp>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCheckboxes(true)}
+                  className="h-fit rounded-full bg-blue-600 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-blue-600/50 disabled:text-white/50"
+                >
+                  Select
+                </button>
+              )}
+            </div>
+          )}
+        {groupification?.length === 0 && (
+          <button
+            disabled={isPending}
+            onClick={() => generateGroups(sentimentValue)}
+            className="group flex h-fit w-fit items-center space-x-1"
           >
-            {SentimentRow}
-          </List>
-        </tbody>
-      </table>
+            <div
+              className={cn(
+                isPending
+                  ? "border-0 text-zinc-500"
+                  : "border group-hover:bg-[#1D242E]",
+                "flex min-h-10 min-w-10 items-center justify-center rounded-l-lg border-[#252C36] bg-[#0E1420] transition-colors",
+              )}
+            >
+              <FaLayerGroup className="h-4 w-4" />
+            </div>
+            <div
+              className={cn(
+                isPending
+                  ? "border-0 text-zinc-500"
+                  : "border group-hover:bg-[#1D242E]",
+                "flex h-10 w-fit items-center justify-center whitespace-nowrap rounded-r-lg border-[#252C36] bg-[#0E1420] px-6 transition-colors",
+              )}
+            >
+              {isPending ? (
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-zinc-400 border-t-blue-400/50" />
+              ) : (
+                <p>Group to Reply</p>
+              )}
+            </div>
+          </button>
+        )}
+      </div>
+      {groupification?.length > 0 && (
+        <div className="flex w-1/2 items-center rounded-lg border border-[#252C36] bg-[#0E1420] p-2">
+          <button
+            type="button"
+            onClick={() => setTab(0)}
+            className={cn(
+              tab === 0 && "bg-[#1D242E]",
+              "w-full rounded-lg px-4 py-2 hover:bg-[#1D242E] hover:bg-opacity-50",
+            )}
+          >
+            Comments
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab(1)}
+            className={cn(
+              tab === 1 && "bg-[#1D242E]",
+              "w-full rounded-lg px-4 py-2 hover:bg-[#1D242E] hover:bg-opacity-50",
+            )}
+          >
+            Groupification
+          </button>
+        </div>
+      )}
+      {tab === 0 ? (
+        <CommentsComp
+          list={sentimentValue}
+          list_about={sentimentKey}
+          showCheckboxes={showCheckboxes}
+          selected={selected}
+          setSelected={setSelected}
+          _dataCopy={_dataCopy}
+          set_dataCopy={set_dataCopy}
+        />
+      ) : (
+        <RenderAccordion
+          groupification={groupification}
+          sentimentValue={sentimentValue}
+        />
+      )}
     </div>
   );
 };

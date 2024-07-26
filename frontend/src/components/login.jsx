@@ -13,7 +13,7 @@ export const LoginPage = ({ setIsLoggedIn }) => {
     ].join(" "),
     onSuccess: async (tokenResponse) => {
       // Save access token and expires in to cookies
-      console.log(tokenResponse);
+      // console.log(tokenResponse);
       const accessToken = tokenResponse.access_token;
       const expiresIn = tokenResponse.expires_in;
       const expiresAt = new Date(Date.now() + expiresIn * 1000);
@@ -32,8 +32,8 @@ export const LoginPage = ({ setIsLoggedIn }) => {
         .post(`http://localhost:5000/api/auth/login`, userData)
         .then((res) => res.data);
 
-      console.log("userData", userData);
-      console.log("user", user);
+      // console.log("userData", userData);
+      // console.log("user", user);
       // Use the user's profile information
       setIsLoggedIn(true);
     },

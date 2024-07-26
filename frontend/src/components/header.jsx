@@ -1,4 +1,4 @@
-import { googleLogout, useGoogleLogin } from "@react-oauth/google";
+import { googleLogout, useGoogleLogin, } from "@react-oauth/google";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 
@@ -33,9 +33,11 @@ export const Header = ({ children, isLoggedIn, setIsLoggedIn }) => {
         // Save access token with expiry date and refresh token into cookies
         const { access_token, refresh_token, expiry_date } = tokens;
 
+        // console.log(see)
+
         document.cookie = `access_token=${access_token}; expires=${new Date(expiry_date).toUTCString()}; path=/`;
         document.cookie = `refresh_token=${refresh_token}; path=/`;
-
+        
         setIsLoggedIn(true);
         toast.success("Logged in successfully");
       } catch (err) {
