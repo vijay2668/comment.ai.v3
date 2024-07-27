@@ -215,7 +215,7 @@ async function handleCategorize(comments){
 
 async function handleSimplified(sentimentValue){
   try {
-    const response = await axios.post("${backend_url}/api/simplified", {
+    const response = await axios.post(`${backend_url}/api/simplified`, {
       sentiment: sentimentValue
     });
 
@@ -258,7 +258,7 @@ async function handleSimplified(sentimentValue){
 
 async function handleGroups({ simplified_comments, sentimentValue }){
   try {
-    const response = await axios.post("${backend_url}/api/groups", {
+    const response = await axios.post(`${backend_url}/api/groups`, {
       simplified_comments
     });
 
