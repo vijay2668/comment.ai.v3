@@ -190,7 +190,7 @@ async function fetchRejectedComments({ videoId, options }){
 
 async function handleCategorize(comments){
   try {
-    const sentiment = await axios.post("${backend_url}/api/categorize", {
+    const sentiment = await axios.post(`${backend_url}/api/categorize`, {
       comments: JSON.stringify(comments)
     }).then((res)=> res.data);
 
