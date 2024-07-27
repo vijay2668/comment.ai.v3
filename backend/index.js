@@ -15,6 +15,11 @@ const PORT = process.env.PORT || 5000;
 
 app.use("/api", rootRouter);
 
+app.get('/', (req, res) => {
+  res.send("Server is alive")
+  console.log("Server is alive")
+})
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
