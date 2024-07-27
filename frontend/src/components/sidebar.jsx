@@ -5,8 +5,14 @@ import toast from "react-hot-toast";
 import axios from "axios";
 import { TbLogout } from "react-icons/tb";
 import { BiSolidDashboard, BiStats, BiTable } from "react-icons/bi";
-import { useParams, Link, useLocation, useSearchParams } from "react-router-dom";
+import {
+  useParams,
+  Link,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import { ComponentsHeader } from "./components-header";
+import { backend_url } from "../helpers";
 
 export const Sidebar = ({ children, isLoggedIn, setIsLoggedIn }) => {
   const location = useLocation();
@@ -36,7 +42,7 @@ export const Sidebar = ({ children, isLoggedIn, setIsLoggedIn }) => {
     onSuccess: async ({ code }) => {
       try {
         const tokens = await axios
-          .post("http://localhost:5000/api/auth", {
+          .post(`${backend_url}/api/auth`, {
             code,
           })
           .then((res) => res.data);

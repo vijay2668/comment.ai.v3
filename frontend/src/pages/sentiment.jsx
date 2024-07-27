@@ -11,6 +11,7 @@ import { MenuComp } from "../components/menu";
 import { RenderAccordion } from "../components/render-accordion";
 import {
   arraysAreEqual,
+  backend_url,
   deleteComments,
   getCookie,
   getCurrentUser,
@@ -88,7 +89,7 @@ export const Sentiment = () => {
       // );
 
       await axios.post(
-        `http://localhost:5000/api/groupification/${recentSentiment.id}/${sentimentKey}`, //getLastRecentSentiment.id as sentimentId as db.sentiment.id & // sentimentKey as (positives, negatives, questions, neutrals, comments)
+        `${backend_url}/api/groupification/${recentSentiment.id}/${sentimentKey}`, //getLastRecentSentiment.id as sentimentId as db.sentiment.id & // sentimentKey as (positives, negatives, questions, neutrals, comments)
         {
           videoId: videoSession.id, // videoId as db.video.id
           channelId: currentUser.id, //currentUser's channel id

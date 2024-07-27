@@ -33,6 +33,7 @@ import { MenuComp } from "../components/menu";
 import { SentimentAnalysisBtn } from "../components/sentiment-analysis-btn/sentiment-analysis-btn";
 import { Tooltip } from "../components/tooltip";
 import {
+  backend_url,
   deleteComments,
   fetchComments,
   formatDate,
@@ -130,7 +131,7 @@ const Dashboard = () => {
       setSentiment(latestSentiment);
 
       await axios.post(
-        `http://localhost:5000/api/sentiment/${videoSession.id}`,
+        `${backend_url}/api/sentiment/${videoSession.id}`,
         {
           channelId: currentUser.id, //currentUser's channel id
           sentiment_data: { comments, ...latestSentiment },

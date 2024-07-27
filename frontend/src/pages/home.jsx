@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  backend_url,
   download,
   extractVideoId,
   fetchComments,
@@ -65,7 +66,7 @@ const Home = ({ isLoggedIn, options, setOptions, selected, setSelected }) => {
     sessionStorage.clear();
 
     const createVideoSessionId = await axios.post(
-      `http://localhost:5000/api/video/${videoId}`,
+      `${backend_url}/api/video/${videoId}`,
       {
         channelId: currentUser?.id, //currentUser's channel id
         youtubeChannelId: videoIdOwnerChannelId, //video owner's channel id

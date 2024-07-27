@@ -5,6 +5,8 @@ import { FaRegUser } from "react-icons/fa";
 import { FiThumbsUp } from "react-icons/fi";
 import { Tooltip } from "./components/tooltip";
 
+const backend_url = process.env.REACT_APP_BACKEND_URL;
+
 function extractVideoId(url){
   // Regex pattern to match YouTube URLs
   // const regex =
@@ -26,7 +28,7 @@ function extractVideoId(url){
 async function fetchComments({ videoId, options }){
   try {
     const response = await axios.post(
-      `http://localhost:5000/api/comments/${videoId}`,
+      `${backend_url}/api/comments/${videoId}`,
       { options }
     );
 
@@ -77,7 +79,7 @@ async function fetchComments({ videoId, options }){
 async function fetchRejectedComments({ videoId, options }){
   try {
     const response = await axios.post(
-      `http://localhost:5000/api/rejected-comments/${videoId}`,
+      `${backend_url}/api/rejected-comments/${videoId}`,
       { options }
     );
 
@@ -140,7 +142,7 @@ async function fetchRejectedComments({ videoId, options }){
 //     }
 
 //     const response = await axios.post(
-//       `http://localhost:5000/api/comments/${extractVideoId(input)}`,
+//       `${backend_url}/api/comments/${extractVideoId(input)}`,
 //       { options }
 //     );
 
@@ -188,7 +190,7 @@ async function fetchRejectedComments({ videoId, options }){
 
 async function handleCategorize(comments){
   try {
-    const sentiment = await axios.post("http://localhost:5000/api/categorize", {
+    const sentiment = await axios.post("${backend_url}/api/categorize", {
       comments: JSON.stringify(comments)
     }).then((res)=> res.data);
 
@@ -200,7 +202,7 @@ async function handleCategorize(comments){
 
 // async function handleCategorize({ comments, setCategorize }){
 //   try {
-//     const response = await axios.post("http://localhost:5000/api/categorize", {
+//     const response = await axios.post("${backend_url}/api/categorize", {
 //       comments
 //     });
 
@@ -213,7 +215,7 @@ async function handleCategorize(comments){
 
 async function handleSimplified(sentimentValue){
   try {
-    const response = await axios.post("http://localhost:5000/api/simplified", {
+    const response = await axios.post("${backend_url}/api/simplified", {
       sentiment: sentimentValue
     });
 
@@ -227,7 +229,7 @@ async function handleSimplified(sentimentValue){
 
 // async function handleSimplified({ questions, setCategorize }){
 //   try {
-//     const response = await axios.post("http://localhost:5000/api/simplified", {
+//     const response = await axios.post("${backend_url}/api/simplified", {
 //       questions
 //     });
 
@@ -256,7 +258,7 @@ async function handleSimplified(sentimentValue){
 
 async function handleGroups({ simplified_comments, sentimentValue }){
   try {
-    const response = await axios.post("http://localhost:5000/api/groups", {
+    const response = await axios.post("${backend_url}/api/groups", {
       simplified_comments
     });
 
@@ -287,7 +289,7 @@ async function handleGroups({ simplified_comments, sentimentValue }){
 
 // async function handleGroups({ questions, setGroups, setTextarea }){
 //   try {
-//     const response = await axios.post("http://localhost:5000/api/groups", {
+//     const response = await axios.post("${backend_url}/api/groups", {
 //       simplified_comments: questions.map((question) => ({
 //         cid: question.cid,
 //         simplified_comment: question.simplified_comment
@@ -835,28 +837,28 @@ async function getCurrentUser() {
           .then((res) => res.data.items[0].id);
 
                 
-  const currentUserChannel = await axios.get(`http://localhost:5000/api/channel/${channelId}`).then((res)=> res.data);
+  const currentUserChannel = await axios.get(`${backend_url}/api/channel/${channelId}`).then((res)=> res.data);
   return currentUserChannel;
 }
 
 async function getVideoSession(youtubeVideoId) {
-  const currentVideoSession = await axios.get(`http://localhost:5000/api/video/${youtubeVideoId}`).then((res)=> res.data);
+  const currentVideoSession = await axios.get(`${backend_url}/api/video/${youtubeVideoId}`).then((res)=> res.data);
   return currentVideoSession;
 }
 
 async function getSentiment(videoId) {
-  const sentiment = await axios.get(`http://localhost:5000/api/sentiment/${videoId}`).then((res)=> res.data);
+  const sentiment = await axios.get(`${backend_url}/api/sentiment/${videoId}`).then((res)=> res.data);
   return sentiment;
 }
 
 async function getGroupification(sentimentId, sentimentKey) {
-  const groupification = await axios.get(`http://localhost:5000/api/groupification/${sentimentId}/${sentimentKey}`).then((res)=> res.data);
+  const groupification = await axios.get(`${backend_url}/api/groupification/${sentimentId}/${sentimentKey}`).then((res)=> res.data);
   return groupification;
 }
 
 
 export {
-  arraysAreEqual, deleteComments, download, extractVideoId, fetchComments, fetchRejectedComments, formatDate, formatNumber, getAccessToken, getCookie, getCurrentUser, getVideoSession, getSentiment, getGroupification, getSessionStorage, getTokenInfo, handleCategorize, handleGroups, handleSimplified, linkRegex, moderateComments, renderRow, replacer, replies,
+  backend_url, arraysAreEqual, deleteComments, download, extractVideoId, fetchComments, fetchRejectedComments, formatDate, formatNumber, getAccessToken, getCookie, getCurrentUser, getVideoSession, getSentiment, getGroupification, getSessionStorage, getTokenInfo, handleCategorize, handleGroups, handleSimplified, linkRegex, moderateComments, renderRow, replacer, replies,
   reply, timeAgo, timeSince, transformTextWithLink, updateComment
 };
 

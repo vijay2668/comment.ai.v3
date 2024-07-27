@@ -1,6 +1,7 @@
 import { useGoogleLogin } from "@react-oauth/google";
 import GoogleButton from "react-google-button";
 import axios from "axios";
+import { backend_url } from "../helpers";
 
 export const LoginPage = ({ setIsLoggedIn }) => {
   //this is a google login execute function
@@ -29,7 +30,7 @@ export const LoginPage = ({ setIsLoggedIn }) => {
       ).then((response) => response.json());
 
       const user = await axios
-        .post(`http://localhost:5000/api/auth/login`, userData)
+        .post(`${backend_url}/api/auth/login`, userData)
         .then((res) => res.data);
 
       // console.log("userData", userData);

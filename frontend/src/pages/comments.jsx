@@ -11,6 +11,7 @@ import { MenuComp } from "../components/menu";
 import { RenderAccordion } from "../components/render-accordion";
 import {
   arraysAreEqual,
+  backend_url,
   deleteComments,
   fetchComments,
   getCookie,
@@ -85,7 +86,7 @@ const Comments = () => {
 
       if (recentSentiment) {
         await axios.post(
-          `http://localhost:5000/api/groupification/${recentSentiment?.id}/comments`, //getLastRecentSentiment.id as sentimentId as db.sentiment.id & // comments as sentimentKey as (positives, negatives, questions, neutrals, comments)
+          `${backend_url}/api/groupification/${recentSentiment?.id}/comments`, //getLastRecentSentiment.id as sentimentId as db.sentiment.id & // comments as sentimentKey as (positives, negatives, questions, neutrals, comments)
           {
             videoId: videoSession.id, // videoId as db.video.id
             channelId: currentUser.id, //currentUser's channel id
@@ -94,14 +95,14 @@ const Comments = () => {
         );
       } else {
         const generatedSentiment = await axios
-          .post(`http://localhost:5000/api/sentiment/${videoSession.id}`, {
+          .post(`${backend_url}/api/sentiment/${videoSession.id}`, {
             channelId: currentUser.id, //currentUser's channel id
             sentiment_data: { comments },
           })
           .then((res) => res.data);
 
         await axios.post(
-          `http://localhost:5000/api/groupification/${generatedSentiment?.id}/comments`, //getLastRecentSentiment.id as sentimentId as db.sentiment.id & // comments as sentimentKey as (positives, negatives, questions, neutrals, comments)
+          `${backend_url}/api/groupification/${generatedSentiment?.id}/comments`, //getLastRecentSentiment.id as sentimentId as db.sentiment.id & // comments as sentimentKey as (positives, negatives, questions, neutrals, comments)
           {
             videoId: videoSession.id, // videoId as db.video.id
             channelId: currentUser.id, //currentUser's channel id

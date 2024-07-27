@@ -1,6 +1,7 @@
 import { googleLogout, useGoogleLogin, } from "@react-oauth/google";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import { backend_url } from "../helpers";
 
 export const Header = ({ children, isLoggedIn, setIsLoggedIn }) => {
   // for logoutting the user
@@ -24,7 +25,7 @@ export const Header = ({ children, isLoggedIn, setIsLoggedIn }) => {
     onSuccess: async ({ code }) => {
       try {
         const tokens = await axios
-          .post("http://localhost:5000/api/auth", {
+          .post(`${backend_url}/api/auth`, {
             code,
           })
           .then((res) => res.data);
